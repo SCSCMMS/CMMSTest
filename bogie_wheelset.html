@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SCS Wheelsets Measurement Tracker</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="styles-wheel.css">
+</head>
+<body>
+<script>
+(function() {
+  const username = localStorage.getItem('maintenanceUser');
+  const name = localStorage.getItem('userFullName');
+  const position = localStorage.getItem('userPosition');
+
+  if (!username) {
+    window.location.href = "index.html";
+  } else {
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("loggedInName").textContent = name;
+      document.getElementById("loggedInPosition").textContent = position;
+    });
+  }
+})();
+</script>  
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Loading data...</div>
+</div>
+
+<!-- Sidebar Options -->
+<div class="options-sidebar">
+  <div class="sidebar-header"><h2>SCS Dashboard</h2></div>
+  <div class="user-info">
+    <div class="user-avatar"><i class="fas fa-user-circle"></i></div>
+    <div class="user-details">
+      <div class="user-name" id="loggedInName">Loading...</div>
+      <div class="user-position" id="loggedInPosition">Loading...</div>
+    </div>
+  </div>
+  <div class="sidebar-section">
+    <ul class="options-list">
+      <li class="option-item"><a href="#" class="option-btn" id="refreshBtn"><i class="fas fa-sync-alt"></i><span>Refresh Data</span></a></li>
+      <li class="option-item"><a href="#" class="option-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>Logout</span></a></li>
+    </ul>
+  </div>
+    <!-- Status Section -->
+  <div class="sidebar-section">
+    <div class="section-header"><i class="fas fa-clipboard-list"></i><h3>Status</h3></div>
+    <ul class="options-list">
+      <li class="option-item"><a href="bogie_wheelset.html" class="option-btn active"><i class="fas fa-circle"></i><span>Wheelset</span></a></li>
+    </ul>
+  </div>
+</div>
+
+  <div class="main-content">
+    <h1>SCS Wheelsets Measurement Tracker</h1>
+    <p class="welcome-text">Monitor wheelsets diameters and flange condition.</p>
+
+    <div id="messageContainer"></div>
+
+    <div class="content-tabs">
+      <button class="content-tab active" data-target="data-input-section"><i class="fas fa-edit"></i> Data Input</button>
+      <button class="content-tab" data-target="data-display-section"><i class="fas fa-table"></i> Data Display</button>
+    </div>
+
+    <div id="data-input-section" class="content-section active">
+      <div class="controls">
+        <div class="controls-row">
+          <div class="form-group">
+            <label for="trainSelectInput"><strong>Select Train Set:</strong></label>
+            <select id="trainSelectInput" class="form-control">
+              <option value="">-- Select Train Set --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="dateInput"><strong>Measurement Date:</strong></label>
+            <input type="date" id="dateInput" class="form-control">
+          </div>
+          <div class="bulk-actions">
+            <button type="button" class="bulk-btn" onclick="fillMeasurements('diameter', '850.00')">
+              <i class="fas fa-ruler"></i> Fill All Dia
+            </button>
+            <button type="button" class="bulk-btn" onclick="fillMeasurements('height', '30.00')">
+              <i class="fas fa-arrows-alt-v"></i> Fill All Ht
+            </button>
+            <button type="button" class="bulk-btn" onclick="fillMeasurements('thickness', '28.50')">
+              <i class="fas fa-arrows-alt-h"></i> Fill All Thk
+            </button>
+            <button type="button" class="bulk-btn" onclick="clearInputData()">
+              <i class="fas fa-broom"></i> Clear All
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2><i class="fas fa-ruler"></i> Diameter Specifications</h2></div>
+        <div class="specs-grid">
+          <div class="spec-item"><span class="spec-label">Wheel Diameter (New):</span><span class="spec-value">850 mm</span></div>
+          <div class="spec-item"><span class="spec-label">Wheel Diameter (Min):</span><span class="spec-value">770 mm</span></div>
+          <div class="spec-item"><span class="spec-label">Diameter Diff (Same Axle):</span><span class="spec-value">&lt; 2 mm</span></div>
+          <div class="spec-item"><span class="spec-label">Diameter Diff (Same Bogie):</span><span class="spec-value">&lt; 4 mm</span></div>
+          <div class="spec-item"><span class="spec-label">Diameter Diff (Same Car):</span><span class="spec-value">&lt; 7 mm</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2><i class="fas fa-circle-notch"></i> Flange Specifications</h2></div>
+        <div class="specs-grid">
+          <div class="spec-item"><span class="spec-label">Flange Height (Min):</span><span class="spec-value">30 mm</span></div>
+          <div class="spec-item"><span class="spec-label">Flange Height (Max):</span><span class="spec-value">36 mm</span></div>
+          <div class="spec-item"><span class="spec-label">Flange Thickness (Min):</span><span class="spec-value">24 mm</span></div>
+          <div class="spec-item"><span class="spec-label">Flange Thickness (Max):</span><span class="spec-value">28.5 mm</span></div>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table id="inputTable" class="data-table">
+          <thead>
+            <tr>
+              <th>Trainset</th>
+              <th>Date</th>
+              <th>Car</th>
+              <th>Bogie</th>
+              <th>Axle</th>
+              <th>Dia L<br>(mm)</th>
+              <th>Dia R<br>(mm)</th>
+              <th>Flange Ht L<br>(mm)</th>
+              <th>Flange Ht R<br>(mm)</th>
+              <th>Flange Thk L<br>(mm)</th>
+              <th>Flange Thk R<br>(mm)</th>
+              <th>Axle Diff<br>(mm)</th>
+              <th>Bogie Diff<br>(mm)</th>
+              <th>Car Diff<br>(mm)</th>
+            </tr>
+          </thead>
+          <tbody id="inputTableBody"></tbody>
+        </table>
+      </div>
+
+      <button onclick="saveAllMeasurements()" class="submit-btn">
+        <i class="fas fa-save"></i> Save All Measurements
+      </button>
+    </div>
+
+    <div id="data-display-section" class="content-section">
+      <div class="controls">
+        <div class="controls-row">
+          <div class="form-group">
+            <label for="trainSelectDisplay"><strong>Select Train Set:</strong></label>
+            <select id="trainSelectDisplay" class="form-control">
+              <option value="">-- Select Train Set --</option>
+            </select>
+          </div>
+          <button onclick="refreshDisplayData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh</button>
+        </div>
+      </div>
+
+      <div id="summaryCards" class="quick-actions">
+        <div class="action-card card-critical">
+          <i class="fas fa-circle"></i>
+          <h3>Diameter Out of Range</h3>
+          <p id="diameterOutCount">0</p>
+        </div>
+        <div class="action-card card-warning">
+          <i class="fas fa-ruler-combined"></i>
+          <h3>Diameter Diff Violation</h3>
+          <p id="diameterDiffCount">0</p>
+        </div>
+        <div class="action-card card-normal">
+          <i class="fas fa-circle-notch"></i>
+          <h3>Flange Out of Range</h3>
+          <p id="flangeOutCount">0</p>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table id="displayTable" class="data-table">
+          <thead>
+            <tr>
+              <th>Trainset</th>
+              <th>Date</th>
+              <th>Car</th>
+              <th>Bogie</th>
+              <th>Axle</th>
+              <th>Dia L<br>(mm)</th>
+              <th>Dia R<br>(mm)</th>
+              <th>Flange Ht L<br>(mm)</th>
+              <th>Flange Ht R<br>(mm)</th>
+              <th>Flange Thk L<br>(mm)</th>
+              <th>Flange Thk R<br>(mm)</th>
+              <th>Axle Diff<br>(mm)</th>
+              <th>Bogie Diff<br>(mm)</th>
+              <th>Car Diff<br>(mm)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="displayTableBody">
+            <tr><td colspan="15" style="text-align:center;">Select a train set to display data</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2><i class="fas fa-exclamation-triangle"></i> Tolerance Violations</h2>
+        </div>
+        <div id="violationAlerts" class="violations-container">
+          <div class="no-violations">No violations detected</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// Configuration
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx4oNxBGizMvGargob7MsVzH92EnQV-ZyBpX661KT6GWENHK0OUsEj0tKgQCW6mU8ll/exec';
+const trains = Array.from({length: 38}, (_, i) => 'T' + String(i+1).padStart(2, '0'));
+const MIN_DIAMETER = 770;
+const MAX_DIAMETER = 850;
+const MAX_AXLE_DIFF = 2;
+const MAX_BOGIE_DIFF = 4;
+const MAX_CAR_DIFF = 7;
+const MIN_FLANGE_HEIGHT = 30;
+const MAX_FLANGE_HEIGHT = 36;
+const MIN_FLANGE_THICKNESS = 24;
+const MAX_FLANGE_THICKNESS = 28.5;
+
+const CAR_SEQUENCE = ['MC1', 'T1', 'M1', 'M2', 'T2', 'MC2'];
+
+// State
+let currentData = [];
+let currentTrain = '';
+
+// DOM Elements
+const trainSelectInput = document.getElementById('trainSelectInput');
+const trainSelectDisplay = document.getElementById('trainSelectDisplay');
+const dateInput = document.getElementById('dateInput');
+const messageContainer = document.getElementById('messageContainer');
+const successModal = document.getElementById('successModal');
+const modalMessage = document.getElementById('modalMessage');
+
+document.addEventListener('DOMContentLoaded', initializeApp);
+
+function initializeApp() {
+  populateTrainDropdowns();
+  setupEventListeners();
+  updateDateTime();
+  dateInput.valueAsDate = new Date();
+  createBlankInputTable();
+}
+
+function populateTrainDropdowns() {
+  trainSelectInput.innerHTML = '<option value="">-- Select Train Set --</option>';
+  trainSelectDisplay.innerHTML = '<option value="">-- Select Train Set --</option>';
+  trains.forEach(t => {
+    trainSelectInput.add(new Option(t, t));
+    trainSelectDisplay.add(new Option(t, t));
+  });
+}
+
+function setupEventListeners() {
+  trainSelectInput.addEventListener('change', function() {
+    currentTrain = this.value;
+    createBlankInputTable();
+  });
+  
+  trainSelectDisplay.addEventListener('change', function() {
+    currentTrain = this.value;
+    if (currentTrain) loadTrainData(currentTrain, 'display');
+  });
+
+  document.querySelectorAll('.content-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.content-tab').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+      document.getElementById(this.dataset.target).classList.add('active');
+    });
+  });
+}
+
+function createBlankInputTable() {
+  const tbody = document.getElementById('inputTableBody');
+  const train = trainSelectInput.value;
+  const date = dateInput.value;
+  if (!train) {
+    tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;">Please select a train set</td></tr>';
+    return;
+  }
+  
+  let rows = [];
+  CAR_SEQUENCE.forEach((car, carIdx) => {
+    for (let b = 1; b <= 2; b++) {
+      const bogie = `B${b}`;
+      for (let a = 1; a <= 2; a++) {
+        const axle = `A${a}`;
+        const key = `${car}-${bogie}-${axle}`;
+        
+        // Define merged cells logic
+        const isFirstRowOfAll = (carIdx === 0 && b === 1 && a === 1);
+        const isFirstAxleInBogie = (a === 1);
+        const isFirstAxleInCar = (a === 1 && b === 1);
+
+        rows.push(`
+          <tr data-key="${key}" data-car="${car}" data-bogie="${bogie}" data-axle="${axle}">
+            ${isFirstRowOfAll ? `<td rowspan="24" class="merged-cell"><strong>${train}</strong></td>` : ''}
+            ${isFirstRowOfAll ? `<td rowspan="24" class="merged-cell">${date}</td>` : ''}
+            ${isFirstAxleInCar ? `<td class="merged-cell" rowspan="4">${car}</td>` : ''}
+            ${isFirstAxleInBogie ? `<td class="merged-cell" rowspan="2">${bogie}</td>` : ''}
+            <td>${axle}</td>
+            <td><input type="number" step="0.01" class="compact-input dia-l" placeholder="L" oninput="updateWheelMeasurement('${car}','${bogie}','${axle}','L','diameter',this.value)"></td>
+            <td><input type="number" step="0.01" class="compact-input dia-r" placeholder="R" oninput="updateWheelMeasurement('${car}','${bogie}','${axle}','R','diameter',this.value)"></td>
+            <td><input type="number" step="0.01" class="compact-input" placeholder="L" oninput="updateWheelMeasurement('${car}','${bogie}','${axle}','L','flangeHeight',this.value)"></td>
+            <td><input type="number" step="0.01" class="compact-input" placeholder="R" oninput="updateWheelMeasurement('${car}','${bogie}','${axle}','R','flangeHeight',this.value)"></td>
+            <td><input type="number" step="0.01" class="compact-input" placeholder="L" oninput="updateWheelMeasurement('${car}','${bogie}','${axle}','L','flangeThickness',this.value)"></td>
+            <td><input type="number" step="0.01" class="compact-input" placeholder="R" oninput="updateWheelMeasurement('${car}','${bogie}','${axle}','R','flangeThickness',this.value)"></td>
+            <td class="axle-diff">-</td>
+            ${isFirstAxleInBogie ? `<td class="bogie-diff merged-cell" rowspan="2" data-bogie-group="${car}-${bogie}">-</td>` : ''}
+            ${isFirstAxleInCar ? `<td class="car-diff merged-cell" rowspan="4" data-car-group="${car}">-</td>` : ''}
+          </tr>
+        `);
+      }
+    }
+  });
+  tbody.innerHTML = rows.join('');
+  currentData = createEmptyDataStructure(train);
+}
+
+function createEmptyDataStructure(train) {
+  const data = [];
+  const date = dateInput.value;
+  CAR_SEQUENCE.forEach(car => {
+    for (let b = 1; b <= 2; b++) {
+      for (let a = 1; a <= 2; a++) {
+        ['L', 'R'].forEach(w => {
+          data.push({ train, car, bogie: `B${b}`, axle: `A${a}`, wheel: w, diameter: '', flangeHeight: '', flangeThickness: '', status: '', date });
+        });
+      }
+    }
+  });
+  return data;
+}
+
+function updateWheelMeasurement(car, bogie, axle, wheel, type, value) {
+  const idx = currentData.findIndex(r => r.car === car && r.bogie === bogie && r.axle === axle && r.wheel === wheel);
+  if (idx !== -1) {
+    currentData[idx][type] = value;
+    refreshInputTableCalculations();
+  }
+}
+
+/** * IMPROVED CALCULATION LOGIC 
+ * This refreshes the Axle, Bogie, and Car differences in the Data Input table real-time.
+ */
+function refreshInputTableCalculations() {
+  CAR_SEQUENCE.forEach(car => {
+    let carDiameters = [];
+
+    for (let bNum = 1; bNum <= 2; bNum++) {
+      const bogie = `B${bNum}`;
+      let bogieDiameters = [];
+
+      for (let aNum = 1; aNum <= 2; aNum++) {
+        const axle = `A${aNum}`;
+        const key = `${car}-${bogie}-${axle}`;
+        const row = document.querySelector(`tr[data-key="${key}"]`);
+        
+        const left = currentData.find(r => r.car === car && r.bogie === bogie && r.axle === axle && r.wheel === 'L');
+        const right = currentData.find(r => r.car === car && r.bogie === bogie && r.axle === axle && r.wheel === 'R');
+
+        if (left.diameter && right.diameter) {
+          const lVal = parseFloat(left.diameter);
+          const rVal = parseFloat(right.diameter);
+          const axleDiff = Math.abs(lVal - rVal).toFixed(2);
+          
+          bogieDiameters.push(lVal, rVal);
+          carDiameters.push(lVal, rVal);
+
+          const axleCell = row.querySelector('.axle-diff');
+          axleCell.textContent = axleDiff;
+          axleCell.className = 'axle-diff ' + (parseFloat(axleDiff) > MAX_AXLE_DIFF ? 'out-of-range' : '');
+        }
+      }
+
+      // Bogie Diff Update (Merged Cell)
+      const bogieCell = document.querySelector(`td[data-bogie-group="${car}-${bogie}"]`);
+      if (bogieCell) {
+        const bogieDiff = bogieDiameters.length > 1 ? (Math.max(...bogieDiameters) - Math.min(...bogieDiameters)).toFixed(2) : "-";
+        bogieCell.textContent = bogieDiff;
+        bogieCell.className = 'bogie-diff merged-cell ' + (bogieDiff !== "-" && parseFloat(bogieDiff) > MAX_BOGIE_DIFF ? 'out-of-range' : '');
+      }
+    }
+
+    // Car Diff Update (Merged Cell)
+    const carCell = document.querySelector(`td[data-car-group="${car}"]`);
+    if (carCell) {
+      const carDiff = carDiameters.length > 1 ? (Math.max(...carDiameters) - Math.min(...carDiameters)).toFixed(2) : "-";
+      carCell.textContent = carDiff;
+      carCell.className = 'car-diff merged-cell ' + (carDiff !== "-" && parseFloat(carDiff) > MAX_CAR_DIFF ? 'out-of-range' : '');
+    }
+  });
+}
+
+function fillMeasurements(type, defaultValue) {
+  const value = prompt(`Enter ${type} value:`, defaultValue);
+  if (value && !isNaN(parseFloat(value))) {
+    const formatted = parseFloat(value).toFixed(2);
+    const inputs = document.querySelectorAll('#inputTable .compact-input');
+    inputs.forEach((input, index) => {
+      const setIdx = index % 6; // 0,1=Dia, 2,3=Ht, 4,5=Thk
+      let match = false;
+      if (type === 'diameter' && setIdx < 2) match = true;
+      if (type === 'height' && (setIdx === 2 || setIdx === 3)) match = true;
+      if (type === 'thickness' && (setIdx === 4 || setIdx === 5)) match = true;
+      
+      if (match) {
+        input.value = formatted;
+        input.dispatchEvent(new Event('input')); // Trigger calculation refresh
+      }
+    });
+  }
+}
+
+function clearInputData() {
+  if (confirm('Clear all inputs?')) {
+    document.querySelectorAll('#inputTable .compact-input').forEach(i => {
+      i.value = '';
+      i.dispatchEvent(new Event('input'));
+    });
+  }
+}
+
+// Display Functions
+function loadTrainData(train, mode) {
+  const tbody = document.getElementById('displayTableBody');
+  tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;">Loading...</td></tr>';
+  
+  fetch(SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'load', train: train })
+  })
+  .then(res => res.json())
+  .then(data => {
+    currentData = data.map(r => ({
+      train: r[0], car: r[1], bogie: r[2], axle: r[3], wheel: r[4],
+      diameter: r[5] || '', flangeHeight: r[6] || '', flangeThickness: r[7] || '',
+      status: r[8] || '', date: r[9] || ''
+    }));
+    renderDisplayTable();
+  });
+}
+
+function renderDisplayTable() {
+  const tbody = document.getElementById('displayTableBody');
+  
+  // Reset UI elements if no data
+  if (currentData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;">No data found</td></tr>';
+    updateSummaryUI(0, 0, 0, []); // Reset counters
+    return;
+  }
+
+  // 1. Initialize Counters & Violation List
+  let diaOutCount = 0;
+  let diffErrorCount = 0;
+  let flangeErrorCount = 0;
+  let violationsList = [];
+
+  const groupedRows = [];
+  
+  CAR_SEQUENCE.forEach((car, carIdx) => {
+    // Filter data for this car to calculate Car Difference
+    const carData = currentData.filter(r => r.car === car);
+    const carDiameters = carData.map(r => parseFloat(r.diameter)).filter(d => !isNaN(d));
+    const carDiff = carDiameters.length > 1 ? (Math.max(...carDiameters) - Math.min(...carDiameters)).toFixed(2) : "-";
+
+    // CHECK: Car Difference Violation
+    if (carDiff !== "-" && parseFloat(carDiff) > MAX_CAR_DIFF) {
+      diffErrorCount++;
+      violationsList.push(`Car ${car}: Car Dia Diff ${carDiff}mm > ${MAX_CAR_DIFF}mm`);
+    }
+
+    for (let bNum = 1; bNum <= 2; bNum++) {
+      const bogie = `B${bNum}`;
+      const bogieData = carData.filter(r => r.bogie === bogie);
+      const bogieDiameters = bogieData.map(r => parseFloat(r.diameter)).filter(d => !isNaN(d));
+      const bogieDiff = bogieDiameters.length > 1 ? (Math.max(...bogieDiameters) - Math.min(...bogieDiameters)).toFixed(2) : "-";
+
+      // CHECK: Bogie Difference Violation
+      if (bogieDiff !== "-" && parseFloat(bogieDiff) > MAX_BOGIE_DIFF) {
+        diffErrorCount++;
+        violationsList.push(`Car ${car} ${bogie}: Bogie Dia Diff ${bogieDiff}mm > ${MAX_BOGIE_DIFF}mm`);
+      }
+
+      for (let aNum = 1; aNum <= 2; aNum++) {
+        const axle = `A${aNum}`;
+        const axleDataL = bogieData.find(r => r.axle === axle && r.wheel === 'L') || {};
+        const axleDataR = bogieData.find(r => r.axle === axle && r.wheel === 'R') || {};
+        
+        const lDia = parseFloat(axleDataL.diameter);
+        const rDia = parseFloat(axleDataR.diameter);
+        
+        // CHECK: Axle Difference Violation
+        const axleDiff = (lDia && rDia) ? Math.abs(lDia - rDia).toFixed(2) : '-';
+        if (axleDiff !== '-' && parseFloat(axleDiff) > MAX_AXLE_DIFF) {
+           diffErrorCount++;
+           violationsList.push(`Car ${car} ${bogie} ${axle}: Axle Dia Diff ${axleDiff}mm > ${MAX_AXLE_DIFF}mm`);
+        }
+
+        // CHECK: Diameter Range (Left)
+        if (lDia) {
+            if (lDia < MIN_DIAMETER || lDia > MAX_DIAMETER) {
+                diaOutCount++;
+                violationsList.push(`Car ${car} ${bogie} ${axle} L: Diameter ${lDia}mm out of range`);
+            }
+        }
+        // CHECK: Diameter Range (Right)
+        if (rDia) {
+            if (rDia < MIN_DIAMETER || rDia > MAX_DIAMETER) {
+                diaOutCount++;
+                violationsList.push(`Car ${car} ${bogie} ${axle} R: Diameter ${rDia}mm out of range`);
+            }
+        }
+
+        // CHECK: Flange Checks (Height & Thickness)
+        [axleDataL, axleDataR].forEach(d => {
+            const h = parseFloat(d.flangeHeight);
+            const t = parseFloat(d.flangeThickness);
+            const w = d.wheel; // L or R
+            
+            if (!isNaN(h) && (h < MIN_FLANGE_HEIGHT || h > MAX_FLANGE_HEIGHT)) {
+                flangeErrorCount++;
+                violationsList.push(`Car ${car} ${bogie} ${axle} ${w}: Flange Ht ${h}mm out of range`);
+            }
+            if (!isNaN(t) && (t < MIN_FLANGE_THICKNESS || t > MAX_FLANGE_THICKNESS)) {
+                flangeErrorCount++;
+                violationsList.push(`Car ${car} ${bogie} ${axle} ${w}: Flange Thk ${t}mm out of range`);
+            }
+        });
+
+        // Determine Row Status (NG/OK)
+        const isNg = (lDia && (lDia < MIN_DIAMETER || lDia > MAX_DIAMETER)) || 
+                     (rDia && (rDia < MIN_DIAMETER || rDia > MAX_DIAMETER)) || 
+                     (parseFloat(axleDiff) > MAX_AXLE_DIFF) ||
+                     (bogieDiff !== "-" && parseFloat(bogieDiff) > MAX_BOGIE_DIFF) ||
+                     (carDiff !== "-" && parseFloat(carDiff) > MAX_CAR_DIFF);
+
+        // Formatting Helper for rowspans
+        const isFirstRowOfAll = (carIdx === 0 && bNum === 1 && aNum === 1);
+        const isFirstAxleInBogie = (aNum === 1);
+        const isFirstAxleInCar = (aNum === 1 && bNum === 1);
+
+        groupedRows.push(`
+          <tr>
+            ${isFirstRowOfAll ? `<td rowspan="24" class="merged-cell"><strong>${currentTrain}</strong></td>` : ''}
+            ${isFirstRowOfAll ? `<td rowspan="24" class="merged-cell">${axleDataL.date || '-'}</td>` : ''}
+            ${isFirstAxleInCar ? `<td class="merged-cell" rowspan="4">${car}</td>` : ''}
+            ${isFirstAxleInBogie ? `<td class="merged-cell" rowspan="2">${bogie}</td>` : ''}
+            <td>${axle}</td>
+            <td class="${lDia < MIN_DIAMETER || lDia > MAX_DIAMETER ? 'out-of-range' : ''}">${axleDataL.diameter || '-'}</td>
+            <td class="${rDia < MIN_DIAMETER || rDia > MAX_DIAMETER ? 'out-of-range' : ''}">${axleDataR.diameter || '-'}</td>
+            <td>${axleDataL.flangeHeight || '-'}</td>
+            <td>${axleDataR.flangeHeight || '-'}</td>
+            <td>${axleDataL.flangeThickness || '-'}</td>
+            <td>${axleDataR.flangeThickness || '-'}</td>
+            <td class="${parseFloat(axleDiff) > MAX_AXLE_DIFF ? 'out-of-range' : ''}">${axleDiff}</td>
+            ${isFirstAxleInBogie ? `<td class="merged-cell ${parseFloat(bogieDiff) > MAX_BOGIE_DIFF ? 'out-of-range' : ''}" rowspan="2">${bogieDiff}</td>` : ''}
+            ${isFirstAxleInCar ? `<td class="merged-cell ${parseFloat(carDiff) > MAX_CAR_DIFF ? 'out-of-range' : ''}" rowspan="4">${carDiff}</td>` : ''}
+            <td class="${isNg ? 'ng' : 'ok'}">${isNg ? 'NG' : 'OK'}</td>
+          </tr>
+        `);
+      }
+    }
+  });
+  
+  tbody.innerHTML = groupedRows.join('');
+  
+  // 2. Call Helper to Update UI
+  updateSummaryUI(diaOutCount, diffErrorCount, flangeErrorCount, violationsList);
+}
+
+// Helper function to update the DOM elements
+function updateSummaryUI(diaCount, diffCount, flangeCount, violations) {
+  // Update Cards
+  document.getElementById('diameterOutCount').textContent = diaCount;
+  document.getElementById('diameterDiffCount').textContent = diffCount;
+  document.getElementById('flangeOutCount').textContent = flangeCount;
+
+  // Update Violation List
+  const alertsContainer = document.getElementById('violationAlerts');
+  if (violations.length === 0) {
+      alertsContainer.innerHTML = '<div class="no-violations">No violations detected</div>';
+  } else {
+      // Create HTML for each violation
+      const html = violations.map(v => 
+        `<div class="violation-item" style="padding: 8px; border-bottom: 1px solid #eee; color: #d32f2f;">
+           <i class="fas fa-exclamation-circle"></i> ${v}
+         </div>`
+      ).join('');
+      alertsContainer.innerHTML = html;
+  }
+}
+
+function closeSuccessModal() { successModal.style.display = 'none'; }
+function showMessage(m, t) { messageContainer.innerHTML = `<div class="message ${t}">${m}</div>`; messageContainer.style.display = 'block'; }
+function updateDateTime() { document.getElementById('loggedInName').textContent = "Operator"; document.getElementById('loggedInPosition').textContent = "Maintenance"; }
+function refreshDisplayData() { if (currentTrain) loadTrainData(currentTrain, 'display'); }
+</script>
+</body>
+</html>
